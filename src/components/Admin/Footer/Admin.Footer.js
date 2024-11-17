@@ -12,7 +12,7 @@ const footerStyle = {
 };
 
 const CustomFooter = () => (
-  <Footer style={footerStyle}>Footer</Footer>
+  <Footer style={footerStyle}></Footer>
 );
 
 export default CustomFooter;
