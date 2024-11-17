@@ -1,0 +1,64 @@
+/* Container styling */
+.login-container {
+    height: 100vh;
+    background-color: #f8e8d3; /* Background color similar to the one in your image */
+  }
+  
+  .login-box {
+    max-width: 900px;
+    background-color: #f2e5e5; /* Light background */
+  }
+  
+  /* Image section styling */
+  .login-image img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  
+  /* Form section styling */
+  .login-form {
+    background-color: #ffffff;
+    border-radius: 8px;
+  }
+  
+  .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .ant-input, .ant-input-password {
+    border-radius: 8px;
+  }
+  
+  /* Button Styling */
+  .ant-btn-primary {
+    background-color: #d1a7a7;
+    border-color: #d1a7a7;
+  }
+  
+  .ant-btn-primary:hover {
+    background-color: #c18c8c;
+    border-color: #c18c8c;
+  }
+  
+  /* Title Styling */
+  .ant-typography {
+    font-weight: bold;
+    color: #c18c8c;
+  }
+  .custom-table .ant-table-thead > tr > th {
+    background-color: #000;
+    color: white;
+  }
+  
+  .custom-table .ant-table-tbody > tr > td {
+    border: 1px solid #c18c8c;
+  }
+  
+  .custom-table .ant-table-tbody > tr:nth-child(even) {
+    background-color: #fff;
+  }
+  
+  .custom-table .ant-table-tbody > tr:nth-child(odd) {
+    background-color: #fff;
+  }
