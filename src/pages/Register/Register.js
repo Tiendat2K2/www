@@ -7,7 +7,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../assets/css/Login.css';
 import studentsImage from '../../assets/img/bia.png';
 import logo from '../../assets/img/logo.png';
-import API_URL from '../../server/server';
+import { API_URL } from '../../utils/api';
 const { Title } = Typography;
 
 const Register = () => {

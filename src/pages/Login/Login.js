@@ -7,60 +7,25 @@ import '../../assets/css/Login.css';
 import studentsImage from '../../assets/img/bia.png';
 import logo from '../../assets/img/logo.png';
 import ForgotPasswordModal from '../../Modal/ForgotPassword/ForgotPassword';
-import axios from 'axios';
-import API_URL from '../../server/server';
-import { jwtDecode } from 'jwt-decode';
-
+import { login } from '../../server/server'; // Import your login function
 const { Title } = Typography;
 
 const Login = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        Username: values.username,
-        Password: values.password,
-      });
-      const { status, message: serverMessage, access_token, refresh_token, isAdmin } = response.data;
-      if (status === 1) {
-        message.success(serverMessage);
-        localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', refresh_token);
-        localStorage.setItem('isAdmin', isAdmin);
-        // Decode the access token to get the UserID
-        const decodedToken = jwtDecode(access_token);
-        const UserID = decodedToken.id;
-
-        // Optionally: Use the userID to fetch additional user info (e.g., via an API call)
-        const userResponse = await axios.get(`${API_URL}/auth/getUserById?UserID=${UserID}`, {
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-          }
-        });
-        if (userResponse.data.status === 1) {
-          console.log('User data fetched:', userResponse.data.data);
-        } else {
-          console.error('Failed to fetch user data');
-        }
-
-        // Redirect based on the user's role
-        if (isAdmin) {
-          navigate('/admin'); // Admin dashboard
-        } else {
-          navigate('/teacher'); // Teacher dashboard
-        }
-      } else {
-        message.error('Đăng nhập thất bại!');
-      }
+      await login(values.username, values.password, setLoading, navigate); // Use the login function from auth.js
     } catch (error) {
       message.error(error.response?.data?.message || 'Có lỗi xảy ra trong quá trình đăng nhập.');
     } finally {
       setLoading(false);
     }
   };
+
   const handleForgotPassword = () => {
     setIsModalVisible(true);
   };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import axios from 'axios';
-import API_URL from '../../server/server';
+import { API_URL } from '../../utils/api';
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const [loading, setLoading] = useState(false);

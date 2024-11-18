@@ -9,9 +9,10 @@ import {
   SearchOutlined 
 } from '@ant-design/icons';
 import '../../../assets/css/Login.css';
-import API_URL from '../../../server/server';
-import axios from 'axios';
-
+import { API_URL } from '../../../utils/api';
+import { jwtDecode } from 'jwt-decode';
+import axiosInstance from '../../../utils/axiosInstance';
+import { refreshToken } from '../../../server/server'
 const { Option } = Select;
 
 const TeacherDanhSachBaiViet = () => {
@@ -31,7 +32,7 @@ const TeacherDanhSachBaiViet = () => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_URL}/auth/getDulieu`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getDulieu`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(response.data.dulieu);
@@ -39,12 +40,11 @@ const TeacherDanhSachBaiViet = () => {
       console.error("Error fetching data:", error);
     }
   };
-
   // Fetch chuyên ngành data
   const fetchChuyenNganhData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_URL}/auth/getChuyenNganh`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getChuyenNganh`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setChuyenNganhData(response.data);
@@ -62,7 +62,7 @@ const TeacherDanhSachBaiViet = () => {
             return;
         }
 
-        const response = await axios.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
+        const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
             headers: {
                 'Authorization': `Bearer ${access_token}`,
             },
@@ -98,7 +98,7 @@ const TeacherDanhSachBaiViet = () => {
             return;
         }
 
-        const response = await axios.get(`${API_URL}/auth/viewFile?ID=${id}`, {
+        const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
             headers: {
                 'Authorization': `Bearer ${access_token}`,
             },
@@ -151,7 +151,32 @@ const TeacherDanhSachBaiViet = () => {
     const matchesChuyenNganh = selectedChuyenNganh === 'all' || item.ChuyenNganhID === selectedChuyenNganh;
     return matchesSearch && matchesChuyenNganh;
   }) : [];
+  useEffect(() => {
+    fetchData();
 
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
+      const access_token = localStorage.getItem('access_token');
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, []);
   // Table columns
   const columns = [
     {

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Layout, Spin, Image } from 'antd';
-import axios from 'axios';
 import defaultAvatar from '../../../assets/img/logo.png';
-import API_URL from '../../../server/server';
+import { API_URL } from '../../../utils/api';
 import { jwtDecode } from 'jwt-decode'; // Move this import to the top
+import axiosInstance from '../../../utils/axiosInstance';
+import { refreshToken } from '../../../server/server'
 const { Content } = Layout;
 const contentStyle = {
   padding: '20px',
@@ -66,7 +67,7 @@ const CustomContent = () => {
     Tendonvi: 'null',
     Img: null
   };
-
+  
   const [userData, setUserData] = useState(defaultUserData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -94,7 +95,7 @@ const CustomContent = () => {
       const decodedToken = jwtDecode(access_token);
       const userID = decodedToken.id;
       
-      const response = await axios.get(`${API_URL}/auth/getUserById?UserID=${userID}`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getUserById?UserID=${userID}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
         }
@@ -116,7 +117,32 @@ const CustomContent = () => {
       setLoading(false);
     }
   }, []);
-
+  useEffect(() => {
+    fetchUserData();
+  
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
+      const access_token = localStorage.getItem('access_token');
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+  
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
+      }
+    }, 10000); // Check every 10 seconds
+  
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, [fetchUserData]);
   useEffect(() => {
     // Only fetch data if no user data exists or it's not the default user data
     if (JSON.stringify(userData) === JSON.stringify(defaultUserData)) {

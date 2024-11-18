@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Table, Input, message, Modal, Form, Button } from 'antd';
 import { SearchOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import '../../../assets/css/Login.css';
-import API_URL from '../../../server/server';
+import { API_URL } from '../../../utils/api';
 import {jwtDecode} from 'jwt-decode'; 
-
+import { refreshToken } from '../../../server/server';
 const AdminTenChuyenNganh = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +12,32 @@ const AdminTenChuyenNganh = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [editingItem, setEditingItem] = useState(null);
+  useEffect(() => {
+    fetchData();
 
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
+      const access_token = localStorage.getItem('access_token');
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, []);
   const columns = [
     {
       title: 'STT',

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Table, Input, message, Modal, Form, Button } from 'antd';
 import { SearchOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import '../../../assets/css/Login.css';
-import API_URL from '../../../server/server';
-
+import { API_URL } from '../../../utils/api';
+import axiosInstance from '../../../utils/axiosInstance';
+import { jwtDecode } from 'jwt-decode';
+import { refreshToken } from '../../../server/server';
 const AdminNguoidung = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +15,33 @@ const AdminNguoidung = () => {
   const [form] = Form.useForm();
   const [editingItem, setEditingItem] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
+  useEffect(() => {
+    fetchData();
+
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
+      const access_token = localStorage.getItem('access_token');
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, []);
+
   const columns = [
     {
       title: 'STT',
@@ -68,25 +97,17 @@ const AdminNguoidung = () => {
     setLoading(true);
     try {
       const access_token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_URL}/auth/getTeachers`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.get(`${API_URL}/auth/getTeachers`, {
+        headers: { Authorization: `Bearer ${access_token}` },
       });
-      const result = await response.json();
-      if (response.ok) {
-        setData(result.data.map((item, index) => ({ ...item, stt: index + 1 })));
-      } else {
-        message.error(result.message || 'Lỗi khi lấy dữ liệu!');
-      }
+      setData(response.data.data.map((item, index) => ({ ...item, stt: index + 1 })));
     } catch (error) {
-      message.error('Failed to fetch data!');
+      message.error(error.response?.data?.message || 'Lỗi khi lấy dữ liệu!');
     } finally {
       setLoading(false);
     }
   };
+
   const handleEdit = (record) => {
     setEditingItem(record);
     form.setFieldsValue({
@@ -96,103 +117,65 @@ const AdminNguoidung = () => {
     });
     setIsModalVisible(true);
   };
+
   const handleDeleteConfirmation = (user) => {
     setDeletingUser(user);
-    setIsDeleteModalVisible(true);  // Open the delete confirmation modal
+    setIsDeleteModalVisible(true);
   };
+
   const handleDelete = async () => {
     if (deletingUser) {
       const access_token = localStorage.getItem('access_token');
       try {
-        // Use query parameter for UserID in the URL
-        const response = await fetch(`${API_URL}/auth/deleteTeacher?UserID=${deletingUser.UserID}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/json',
-          },
+        await axiosInstance.delete(`${API_URL}/auth/deleteTeacher`, {
+          headers: { Authorization: `Bearer ${access_token}` },
+          params: { UserID: deletingUser.UserID },
         });
-  
-        if (response.ok) {
-          // Filter out the deleted user from the data
-          setData(data.filter(item => item.UserID !== deletingUser.UserID));
-          message.success('Xóa người dùng thành công!');
-        } else {
-          const errorData = await response.json();
-          message.error(`Xóa người dùng thất bại! Lý do: ${errorData.message || 'Không có thông tin lỗi'}`);
-        }
+        setData(data.filter(item => item.UserID !== deletingUser.UserID));
+        message.success('Xóa người dùng thành công!');
       } catch (error) {
-        console.error('Lỗi khi xóa người dùng:', error);
-        message.error('Lỗi khi xóa người dùng!');
+        message.error(error.response?.data?.message || 'Xóa người dùng thất bại!');
       } finally {
-        setIsDeleteModalVisible(false);  // Close the modal after deletion
+        setIsDeleteModalVisible(false);
       }
     }
   };
+
   const handleResetPassword = async (UserID) => {
     try {
-        const access_token = localStorage.getItem('access_token');
-        if (!access_token) {
-            message.error('Bạn cần đăng nhập để thực hiện thao tác này!');
-            return;
-        }
-
-        const response = await fetch(`${API_URL}/auth/resetTeacherPassword?UserID=${UserID}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/json',
-            },
-        });
-        const result = await response.json();
-
-        if (response.ok) {
-            message.success(result.message || 'Mật khẩu đã được đặt lại thành công!');
-        } else {
-            message.error(result.message || 'Đặt lại mật khẩu thất bại!');
-        }
-    } catch (error) {
-        console.error('Lỗi khi đặt lại mật khẩu:', error);
-        message.error('Lỗi khi đặt lại mật khẩu!');
-    }
-};
-
-const handleModalOk = async () => {
-  try {
-    const values = await form.validateFields();
-    
-    // Only proceed if there's an editing item
-    if (editingItem) {
       const access_token = localStorage.getItem('access_token');
-
-      // Assuming API expects UserID as a query parameter in the URL
-      const response = await fetch(`${API_URL}/auth/updateTeacher?UserID=${editingItem.UserID}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (response.ok) {
-        // Update the data with the new values
-        setData(data.map(item => item.UserID === editingItem.UserID ? { ...item, ...values } : item));
-        message.success('Cập nhật thông tin thành công!');
-      } else {
-        const errorData = await response.json();
-        message.error(`Cập nhật thông tin thất bại! Lý do: ${errorData.message}`);
-      }
+      await axiosInstance.post(
+        `${API_URL}/auth/resetTeacherPassword`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${access_token}` },
+          params: { UserID },
+        }
+      );
+      message.success('Mật khẩu đã được đặt lại thành công!');
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Đặt lại mật khẩu thất bại!');
     }
+  };
 
-    // Reset the modal state
-    setIsModalVisible(false);
-    form.resetFields();
-  } catch (error) {
-    console.error('Lỗi trong quá trình xử lý modal:', error);
-    message.error('Vui lòng kiểm tra lại thông tin!');
-  }
-};
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
+      if (editingItem) {
+        const access_token = localStorage.getItem('access_token');
+        await axiosInstance.put(`${API_URL}/auth/updateTeacher`, values, {
+          headers: { Authorization: `Bearer ${access_token}` },
+          params: { UserID: editingItem.UserID },
+        });
+        setData(data.map(item => (item.UserID === editingItem.UserID ? { ...item, ...values } : item)));
+        message.success('Cập nhật thông tin thành công!');
+      }
+      setIsModalVisible(false);
+      form.resetFields();
+    } catch (error) {
+      message.error('Vui lòng kiểm tra lại thông tin!');
+    }
+  };
 
   const handleSearch = (e) => {
     setSearchText(e.target.value);
@@ -286,4 +269,5 @@ const handleModalOk = async () => {
     </div>
   );
 };
+
 export default AdminNguoidung;

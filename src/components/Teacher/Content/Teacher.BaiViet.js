@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Modal, Form, Select ,message } from 'antd';
 import { EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, SearchOutlined, PlusOutlined } from '@ant-design/icons';
-import API_URL from '../../../server/server';
-import axios from 'axios';
+import { API_URL } from '../../../utils/api';
+
 import { jwtDecode } from 'jwt-decode'; 
+import axiosInstance from '../../../utils/axiosInstance';
+import { refreshToken } from '../../../server/server'
 const TeacherBaiViet = () => {
   const [data, setData] = useState([]);
   const [chuyenNganhData, setChuyenNganhData] = useState([]); // Initialize as an empty array
@@ -22,7 +24,7 @@ const TeacherBaiViet = () => {
       const access_token = localStorage.getItem('access_token');
       const decodedToken = jwtDecode(access_token);
         const UserID = decodedToken.id;
-        const response = await axios.get(`${API_URL}/auth/getDulieuByUserID?UserID=${UserID}`, {
+        const response = await axiosInstance.get(`${API_URL}/auth/getDulieuByUserID?UserID=${UserID}`, {
           headers: { Authorization: `Bearer ${access_token}` }
         });
       setData(response.data.dulieu);
@@ -33,7 +35,7 @@ const TeacherBaiViet = () => {
   const fetchChuyenNganhData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_URL}/auth/getChuyenNganh`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getChuyenNganh`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setChuyenNganhData(response.data);
@@ -46,7 +48,7 @@ const TeacherBaiViet = () => {
   const handleDelete = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      await axios.delete(`${API_URL}/auth/deleteDulieu`, {
+      await axiosInstance.delete(`${API_URL}/auth/deleteDulieu`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { ID: deletingRecordId }  // Pass the ID as a query parameter
       });
@@ -113,12 +115,12 @@ const TeacherBaiViet = () => {
 
         let response;
         if (editingRecord) {
-            response = await axios.put(`${API_URL}/auth/updateDulieu?ID=${editingRecord.ID}`, formData, {
+            response = await axiosInstance.put(`${API_URL}/auth/updateDulieu?ID=${editingRecord.ID}`, formData, {
                 headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'multipart/form-data' }
             });
             message.success('Cập nhật thành công!');
         } else {
-            response = await axios.post(`${API_URL}/auth/addDulieu`, formData, {
+            response = await axiosInstance.post(`${API_URL}/auth/addDulieu`, formData, {
                 headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'multipart/form-data' }
             });
             message.success('Thêm mới thành công!');
@@ -148,7 +150,7 @@ const TeacherBaiViet = () => {
                 return;
             }
     
-            const response = await axios.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
+            const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
                 headers: {
                     'Authorization': `Bearer ${access_token}`,
                 },
@@ -184,7 +186,7 @@ const TeacherBaiViet = () => {
             return;
         }
 
-        const response = await axios.get(`${API_URL}/auth/viewFile?ID=${id}`, {
+        const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
             headers: {
                 'Authorization': `Bearer ${access_token}`,
             },
@@ -254,7 +256,32 @@ const TeacherBaiViet = () => {
         // You can set additional fields as needed
     });
 };
+useEffect(() => {
+  fetchData();
 
+  // Set up a timer to refresh the token before it expires
+  const timer = setInterval(async () => {
+    const access_token = localStorage.getItem('access_token');
+    if (access_token) {
+      const decodedToken = jwtDecode(access_token);
+      const exp = decodedToken.exp * 1000; // Convert to milliseconds
+      const now = Date.now();
+
+      // Check if the token is about to expire in the next 30 seconds
+      if (exp - now < 30000) {
+        try {
+          const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+          localStorage.setItem('access_token', newTokenData.access_token);
+        } catch (refreshError) {
+          console.error('Token refresh error:', refreshError);
+          window.location.reload(); // Reset lại trang nếu không thể làm mới token
+        }
+      }
+    }
+  }, 10000); // Check every 10 seconds
+
+  return () => clearInterval(timer); // Cleanup the timer on unmount
+}, []);
   const columns = [
     {
       title: 'Tiêu đề',

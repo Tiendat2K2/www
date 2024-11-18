@@ -3,7 +3,7 @@ import { Layout, Avatar, Menu, Dropdown, Modal, Form, Input, Button, message, Up
 import { UserOutlined, LogoutOutlined, LockOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../../../assets/img/logo.png';
-import API_URL from '../../../server/server';
+import { API_URL } from '../../../utils/api';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 const { Header } = Layout;

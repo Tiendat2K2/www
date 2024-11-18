@@ -2,12 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Table, Input, Image } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import '../../../assets/css/Login.css';
-import API_URL from '../../../server/server';
-import axios from 'axios';
+import { API_URL } from '../../../utils/api';
+import axiosInstance from '../../../utils/axiosInstance';
+import { jwtDecode } from 'jwt-decode';
+import { refreshToken } from '../../../server/server';
 const AdminThongTinGiaoVien = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  useEffect(() => {
+    fetchData();
+
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
+      const access_token = localStorage.getItem('access_token');
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -17,7 +45,7 @@ const AdminThongTinGiaoVien = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_URL}/auth/getAllUsers`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getAllUsers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(response.data.data);
