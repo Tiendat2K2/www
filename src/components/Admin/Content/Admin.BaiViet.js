@@ -1,48 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Modal, Select ,message} from 'antd';
+import { Table, Input, Button, Modal, Select, message } from 'antd';
 import { 
   EyeOutlined, 
   DownloadOutlined, 
   FileOutlined, 
   FilePdfOutlined, 
   FileWordOutlined, 
-  SearchOutlined ,
-  DeleteOutlined
+  SearchOutlined 
 } from '@ant-design/icons';
 import '../../../assets/css/Login.css';
 import { API_URL } from '../../../utils/api';
-import {jwtDecode} from 'jwt-decode'; 
+import { jwtDecode } from 'jwt-decode';
 import axiosInstance from '../../../utils/axiosInstance';
 import { refreshToken } from '../../../server/server';
+const { Option } = Select;
+
 const AdminBaiViet = () => {
   // Initialize states
   const [data, setData] = useState([]);
   const [chuyenNganhData, setChuyenNganhData] = useState([]);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [deletingRecordId, setDeletingRecordId] = useState(null);
   const [filePreviewModal, setFilePreviewModal] = useState({ visible: false, fileUrl: '', fileName: '' });
   const [searchText, setSearchText] = useState('');
   const [selectedChuyenNganh, setSelectedChuyenNganh] = useState('all');
   const [loading, setLoading] = useState(false);
+
+  const handleChuyenNganhChange = async (value) => {
+    setSelectedChuyenNganh(value);
+    await fetchData(value); // Gọi fetchData với ChuyenNganhID đã chọn
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     fetchData();
     fetchChuyenNganhData();
   }, []);
-  const fetchData = async () => {
-    setLoading(true);
+
+  const fetchData = async (chuyenNganhID = 'all') => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axiosInstance.get(`${API_URL}/auth/getDulieu`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        params: { ChuyenNganhID: chuyenNganhID } // Thêm tham số ChuyenNganhID
       });
       setData(response.data.dulieu);
     } catch (error) {
       console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
     }
   };
+
   // Fetch chuyên ngành data
   const fetchChuyenNganhData = async () => {
     try {
@@ -50,90 +55,86 @@ const AdminBaiViet = () => {
       const response = await axiosInstance.get(`${API_URL}/auth/getChuyenNganh`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setChuyenNganhData(response.data);
+      setChuyenNganhData(response.data); // Dữ liệu chuyên ngành
     } catch (error) {
       console.error("Error fetching data:", error);
     }
   };
+
   // Handle file download
   const handleDownload = async (id, fileName) => {
     try {
-        const access_token = localStorage.getItem('access_token');
-        if (!access_token) {
-            message.error('Không tìm thấy access token');
-            return;
-        }
+      const access_token = localStorage.getItem('access_token');
+      if (!access_token) {
+        message.error('Không tìm thấy access token');
+        return;
+      }
 
-        const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-            },
-            responseType: 'blob', // Ensures that the response is a binary file
-        });
+      const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+        responseType: 'blob', // Ensures that the response is a binary file
+      });
 
-        // Create a Blob from the file response
-        const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      // Create a Blob from the file response
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
 
-        // Create an anchor element to download the file
-        const link = document.createElement('a');
-        const fileURL = window.URL.createObjectURL(blob);
+      // Create an anchor element to download the file
+      const link = document.createElement('a');
+      const fileURL = window.URL.createObjectURL(blob);
 
-        // Set the download attribute with the desired file name
-        link.href = fileURL;
-        link.download = fileName || 'downloaded-file'; // Fallback to 'downloaded-file' if no file name is provided
-        link.click(); // Programmatically trigger the download
+      // Set the download attribute with the desired file name
+      link.href = fileURL;
+      link.download = fileName || 'downloaded-file'; // Fallback to 'downloaded-file' if no file name is provided
+      link.click(); // Programmatically trigger the download
 
-        // Clean up the object URL
-        window.URL.revokeObjectURL(fileURL);
+      // Clean up the object URL
+      window.URL.revokeObjectURL(fileURL);
 
     } catch (error) {
-        console.error('Download error:', error);
-        message.error('Không thể tải xuống file');
+      console.error('Download error:', error);
+      message.error('Không thể tải xuống file');
     }
-};
+  };
 
   // Handle file preview
   const handleView = async (id) => {
     try {
-        const access_token = localStorage.getItem('access_token');
-        if (!access_token) {
-            message.error('Không tìm thấy access token');
-            return;
-        }
+      const access_token = localStorage.getItem('access_token');
+      if (!access_token) {
+        message.error('Không tìm thấy access token');
+        return;
+      }
 
-        const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-            },
-            responseType: 'blob', // Ensures that the response is a binary file
-        });
+      const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+        responseType: 'blob', // Ensures that the response is a binary file
+      });
 
-        // Handle different file types
-        const fileType = response.headers['content-type']; // Determine file type from response headers
+      // Handle different file types
+      const fileType = response.headers['content-type']; // Determine file type from response headers
 
-        if (!fileType || !fileType.startsWith('application/pdf')) {
-            message.error('Không phải file PDF!');
-            return;
-        }
+      if (!fileType || !fileType.startsWith('application/pdf')) {
+        message.error('Không phải file PDF!');
+        return;
+      }
 
-        const blob = new Blob([response.data], { type: fileType });
-        const fileUrl = window.URL.createObjectURL(blob);
-        window.open(fileUrl, '_blank'); // Open the file in a new tab
+      const blob = new Blob([response.data], { type: fileType });
+      const fileUrl = window.URL.createObjectURL(blob);
+      window.open(fileUrl, '_blank'); // Open the file in a new tab
 
     } catch (error) {
-        console.error('Preview error:', error);
-        message.error('Không thể xem file');
+      console.error('Preview error:', error);
+      message.error('Không thể xem file');
     }
-};
+  };
 
   // Handle search
   const handleSearch = (e) => {
     setSearchText(e.target.value);
-  };
-
-  // Handle chuyên ngành change
-  const handleChuyenNganhChange = (value) => {
-    setSelectedChuyenNganh(value);
   };
 
   // Get file icon based on extension
@@ -149,10 +150,7 @@ const AdminBaiViet = () => {
         return <FileOutlined />;
     }
   };
-  const showDeleteConfirm = (id) => {
-    setDeletingRecordId(id);
-    setIsDeleteModalVisible(true);
-  };
+
   // Filter data based on search and chuyên ngành
   const filteredData = Array.isArray(data) ? data.filter(item => {
     if (!item || !item.Tieude) return false;
@@ -160,21 +158,7 @@ const AdminBaiViet = () => {
     const matchesChuyenNganh = selectedChuyenNganh === 'all' || item.ChuyenNganhID === selectedChuyenNganh;
     return matchesSearch && matchesChuyenNganh;
   }) : [];
-  const handleDelete = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      await axiosInstance.delete(`${API_URL}/auth/deleteDulieu`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { ID: deletingRecordId }  // Pass the ID as a query parameter
-      });
-      setData(data.filter(item => item.ID !== deletingRecordId));  // Remove the deleted record from the table
-      setIsDeleteModalVisible(false);  // Close the delete confirmation modal
-      message.success('Xóa thành công!');  // Display success message
-    } catch (error) {
-      console.error("Error deleting record:", error);
-      message.error('Xóa thất bại!');  // Display error message
-    }
-  };
+
   useEffect(() => {
     fetchData();
 
@@ -201,6 +185,7 @@ const AdminBaiViet = () => {
 
     return () => clearInterval(timer); // Cleanup the timer on unmount
   }, []);
+
   // Table columns
   const columns = [
     {
@@ -249,31 +234,17 @@ const AdminBaiViet = () => {
       dataIndex: 'Ghichu',
       key: 'ghiChu',
     },
-    {
-      title: 'Thao tác',
-      key: 'action',
-      render: (_, record) => (
-        <span>
-          <Button
-            onClick={() => showDeleteConfirm(record.ID)}
-            icon={<DeleteOutlined />}
-            style={{ marginLeft: '8px' }}
-          >
-            Xóa
-          </Button>
-        </span>
-      ),
-    },
   ];
+
   return (
     <div>
       <h3 style={{ marginLeft: '20px', marginTop: '20px' }}>Danh sách Bài Viết</h3>
       <div style={{ padding: '20px' }}>
-        <div style={{
-          display: 'flex',
-          marginBottom: '20px',
+        <div style={{ 
+          display: 'flex', 
+          marginBottom: '20px', 
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center' 
         }}>
           <Input
             placeholder="Tìm kiếm theo tiêu đề..."
@@ -282,8 +253,19 @@ const AdminBaiViet = () => {
             onChange={handleSearch}
             style={{ width: '300px' }}
           />
+          <Select
+            defaultValue="all"
+            style={{ width: 200 }}
+            onChange={handleChuyenNganhChange}
+          >
+            <Option value="all">Tất cả</Option>
+            {chuyenNganhData.map(chuyenNganh => (
+              <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
+                {chuyenNganh.TenChuyenNganh} {/* Hiển thị tên chuyên ngành */}
+              </Option>
+            ))}
+          </Select>
         </div>
-  
         <Table
           loading={loading}
           columns={columns}
@@ -296,22 +278,9 @@ const AdminBaiViet = () => {
           style={{ backgroundColor: '#F0F0F0' }}
           className="custom-table"
         />
-  
-  
-        <Modal
-          title="Xác nhận xóa"
-          visible={isDeleteModalVisible}
-          onOk={handleDelete}
-          onCancel={() => setIsDeleteModalVisible(false)}
-          okText="Xóa"
-          cancelText="Hủy"
-        >
-          <p>Bạn có chắc chắn muốn xóa bài viết này không?</p>
-        </Modal>
-  
         <Modal
           title="Chi tiết File"
-          visible={filePreviewModal.visible}
+          open={filePreviewModal.visible}
           onCancel={() => setFilePreviewModal({ ...filePreviewModal, visible: false })}
           footer={[<Button key="back" onClick={() => setFilePreviewModal({ ...filePreviewModal, visible: false })}>Đóng</Button>]}
           width={800}
@@ -327,6 +296,6 @@ const AdminBaiViet = () => {
       </div>
     </div>
   );
-  
 };
+
 export default AdminBaiViet;
