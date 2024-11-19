@@ -160,23 +160,44 @@ const AdminNguoidung = () => {
 
   const handleModalOk = async () => {
     try {
-      const values = await form.validateFields();
-      if (editingItem) {
-        const access_token = localStorage.getItem('access_token');
-        await axiosInstance.put(`${API_URL}/auth/updateTeacher`, values, {
-          headers: { Authorization: `Bearer ${access_token}` },
-          params: { UserID: editingItem.UserID },
-        });
-        setData(data.map(item => (item.UserID === editingItem.UserID ? { ...item, ...values } : item)));
-        message.success('Cập nhật thông tin thành công!');
-      }
-      setIsModalVisible(false);
-      form.resetFields();
-    } catch (error) {
-      message.error('Vui lòng kiểm tra lại thông tin!');
-    }
-  };
+        // Validate form fields
+        const values = await form.validateFields();
 
+        // Kiểm tra xem đang chỉnh sửa một item hay không
+        if (editingItem) {
+            const access_token = localStorage.getItem('access_token');
+            if (!access_token) {
+                message.error('Token không hợp lệ!');
+                return;
+            }
+
+            // Gửi yêu cầu PUT để cập nhật thông tin giáo viên
+            const response = await axiosInstance.put(`${API_URL}/auth/updateTeacher`, values, {
+                headers: { Authorization: `Bearer ${access_token}` },
+                params: { UserID: editingItem.UserID },
+            });
+
+            if (response.data.status === 1) {
+                // Nếu thành công, cập nhật lại dữ liệu trong state
+                setData(data.map(item => (item.UserID === editingItem.UserID ? { ...item, ...values } : item)));
+                message.success('Cập nhật thông tin thành công!');
+            } else {
+                // Nếu có lỗi từ backend, hiển thị thông báo lỗi
+                message.error(response.data.message || 'Đã xảy ra lỗi khi cập nhật!');
+            }
+        }
+        // Đóng modal và reset form
+        setIsModalVisible(false);
+        form.resetFields();
+    } catch (error) {
+        // Xử lý lỗi nếu có
+        if (error.response && error.response.data && error.response.data.message) {
+            message.error(error.response.data.message); // Lỗi từ server
+        } else {
+            message.error('Vui lòng kiểm tra lại thông tin!');
+        }
+    }
+};
   const handleSearch = (e) => {
     setSearchText(e.target.value);
   };
