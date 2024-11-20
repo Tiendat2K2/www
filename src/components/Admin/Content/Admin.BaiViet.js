@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Modal, Select, message } from 'antd';
-import { 
-  EyeOutlined, 
-  DownloadOutlined, 
-  FileOutlined, 
-  FilePdfOutlined, 
-  FileWordOutlined, 
-  SearchOutlined 
-} from '@ant-design/icons';
-import '../../../assets/css/Login.css';
+import { EyeOutlined, DownloadOutlined, FileOutlined, SearchOutlined,FilePdfOutlined,FileWordOutlined,DeleteOutlined } from '@ant-design/icons';
 import { API_URL } from '../../../utils/api';
+import {refreshToken}from '../../../server/server';
 import { jwtDecode } from 'jwt-decode';
 import axiosInstance from '../../../utils/axiosInstance';
-import { refreshToken } from '../../../server/server';
-const { Option } = Select;
-
-const AdminBaiViet = () => {
+const { Option } = Select; 
+const TeacherDanhSachBaiViet = () => {
   // Initialize states
   const [data, setData] = useState([]);
   const [chuyenNganhData, setChuyenNganhData] = useState([]);
-  const [filePreviewModal, setFilePreviewModal] = useState({ visible: false, fileUrl: '', fileName: '' });
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedChuyenNganh, setSelectedChuyenNganh] = useState('all');
   const [loading, setLoading] = useState(false);
+  const [deletingRecordId, setDeletingRecordId] = useState(null);
+  
+  // Initialize file preview modal state
+  const [filePreviewModal, setFilePreviewModal] = useState({ visible: false, fileUrl: '', fileName: '' });
 
   const handleChuyenNganhChange = async (value) => {
     setSelectedChuyenNganh(value);
@@ -185,7 +180,36 @@ const AdminBaiViet = () => {
 
     return () => clearInterval(timer); // Cleanup the timer on unmount
   }, []);
-
+  const showDeleteConfirm = (id) => {
+    setDeletingRecordId(id);
+    setIsDeleteModalVisible(true);
+  };
+  
+  const handleDelete = async () => {
+    setLoading(true); // Bắt đầu trạng thái loading
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axiosInstance.delete(`${API_URL}/auth/deleteDulieu`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { ID: deletingRecordId },
+      });
+  
+      if (response.status === 200) {
+        // Xóa dữ liệu khỏi danh sách hiển thị
+        setData((prevData) => prevData.filter((item) => item.ID !== deletingRecordId));
+        message.success('Xóa thành công!');
+      } else {
+        message.error(response.data?.message || 'Xóa thất bại!');
+      }
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      message.error('Đã xảy ra lỗi khi xóa!');
+    } finally {
+      setLoading(false); // Kết thúc trạng thái loading
+      setIsDeleteModalVisible(false); // Đóng modal
+      setDeletingRecordId(null); // Reset ID
+    }
+  };
   // Table columns
   const columns = [
     {
@@ -234,6 +258,17 @@ const AdminBaiViet = () => {
       dataIndex: 'Ghichu',
       key: 'ghiChu',
     },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      render: (_, record) => (
+        <span>
+          <Button onClick={() => showDeleteConfirm(record.ID)} icon={<DeleteOutlined />} style={{ marginLeft: '8px' }}>
+            Xóa
+          </Button>
+        </span>
+      ),
+    },
   ];
 
   return (
@@ -253,18 +288,14 @@ const AdminBaiViet = () => {
             onChange={handleSearch}
             style={{ width: '300px' }}
           />
-          <Select
-            defaultValue="all"
-            style={{ width: 200 }}
-            onChange={handleChuyenNganhChange}
-          >
-            <Option value="all">Tất cả</Option>
-            {chuyenNganhData.map(chuyenNganh => (
-              <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
-                {chuyenNganh.TenChuyenNganh} {/* Hiển thị tên chuyên ngành */}
-              </Option>
-            ))}
-          </Select>
+          <Select defaultValue="all" onChange={handleChuyenNganhChange}>
+        <Option value="all">Tất cả</Option>
+        {chuyenNganhData.map(chuyenNganh => (
+          <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
+            {chuyenNganh.TenChuyenNganh}
+          </Option>
+        ))}
+      </Select>
         </div>
         <Table
           loading={loading}
@@ -293,9 +324,19 @@ const AdminBaiViet = () => {
             style={{ border: 'none' }}
           />
         </Modal>
+        <Modal
+      title="Xác nhận xóa"
+      visible={isDeleteModalVisible}
+      onOk={handleDelete}
+      onCancel={() => setIsDeleteModalVisible(false)}
+      okText="Xóa"
+      cancelText="Hủy"
+    >
+      <p>Bạn có chắc chắn muốn xóa bản ghi này không?</p>
+    </Modal>
       </div>
     </div>
   );
 };
 
-export default AdminBaiViet;
+export default TeacherDanhSachBaiViet;
