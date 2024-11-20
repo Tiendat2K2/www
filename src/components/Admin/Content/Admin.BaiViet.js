@@ -288,14 +288,18 @@ const TeacherDanhSachBaiViet = () => {
             onChange={handleSearch}
             style={{ width: '300px' }}
           />
-          <Select defaultValue="all" onChange={handleChuyenNganhChange}>
-        <Option value="all">Tất cả</Option>
-        {chuyenNganhData.map(chuyenNganh => (
-          <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
-            {chuyenNganh.TenChuyenNganh}
-          </Option>
-        ))}
-      </Select>
+          <Select
+            defaultValue="all"
+            style={{ width: 200 }}
+            onChange={handleChuyenNganhChange}
+          >
+            <Option value="all">Tất cả</Option>
+            {chuyenNganhData.map(chuyenNganh => (
+              <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
+                {chuyenNganh.TenChuyenNganh} {/* Hiển thị tên chuyên ngành */}
+              </Option>
+            ))}
+          </Select>
         </div>
         <Table
           loading={loading}
