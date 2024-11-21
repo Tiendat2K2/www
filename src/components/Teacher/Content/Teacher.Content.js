@@ -1,131 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Modal, Select, message } from 'antd';
-import { 
-  EyeOutlined, 
-  DownloadOutlined, 
-  FileOutlined, 
-  FilePdfOutlined, 
-  FileWordOutlined, 
-  SearchOutlined 
-} from '@ant-design/icons';
-import '../../../assets/css/Login.css';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Layout, Spin, Image } from 'antd';
+import defaultAvatar from '../../../assets/img/logo.png';
 import { API_URL } from '../../../utils/api';
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode'; // Move this import to the top
 import axiosInstance from '../../../utils/axiosInstance';
-import { refreshToken } from '../../../server/server';
-const { Option } = Select;
+import { refreshToken } from '../../../server/server'
+const { Content } = Layout;
+const contentStyle = {
+  padding: '20px',
+  backgroundColor: '#f7f9fc',
+  borderRadius: '8px',
+  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+};
 
-const TeacherDanhSachBaiViet = () => {
-  // Initialize states
-  const [data, setData] = useState([]);
-  const [chuyenNganhData, setChuyenNganhData] = useState([]);
-  const [filePreviewModal, setFilePreviewModal] = useState({ visible: false, fileUrl: '', fileName: '' });
-  const [searchText, setSearchText] = useState('');
-  const [selectedChuyenNganh, setSelectedChuyenNganh] = useState('all');
-  const [loading, setLoading] = useState(false);
+const imageStyle = {
+  width: '128px',
+  height: '128px',
+  borderRadius: '50%',
+  objectFit: 'cover',
+  marginBottom: '20px',
+  border: '2px solid #ddd',
+};
 
-  const handleChuyenNganhChange = async (value) => {
-    setSelectedChuyenNganh(value);
-    await fetchData(value); // Gọi fetchData với ChuyenNganhID đã chọn
+const infoContainerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '40px',
+  marginBottom: '20px',
+};
+
+const textBlockWrapperStyle = {
+  display: 'flex',
+  flexDirection: 'row',
+  gap: '20px',
+  width: '100%',
+};
+
+const textBlockStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  padding: '15px',
+  border: '1px solid #ddd',
+  borderRadius: '8px',
+  backgroundColor: '#fff',
+  boxShadow: '0 1px 5px rgba(0, 0, 0, 0.1)',
+};
+
+const textStyle = {
+  margin: '10px 0',
+  fontSize: '16px',
+  color: '#555',
+};
+
+const CustomContent = () => {
+  const defaultUserData = {
+    MGV: 'null',
+    Hoten: 'null',
+    Gioitinh: 'null',
+    Ngaysinh: null,
+    Noisinh: 'null',
+    Std: 'null',
+    Sonam: 'null',
+    Nganh: 'null',
+    Chuyenganh: 'null',
+    Tendonvi: 'null',
+    Img: null
   };
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchData();
-    fetchChuyenNganhData();
+  
+  const [userData, setUserData] = useState(defaultUserData);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const formatDate = useCallback((date) => {
+    if (!date) return 'Chưa cập nhật';
+    try {
+      return new Date(date).toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Chưa cập nhật';
+    }
   }, []);
 
-  const fetchData = async (chuyenNganhID = 'all') => {
+  const fetchUserData = useCallback(async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axiosInstance.get(`${API_URL}/auth/getDulieu`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { ChuyenNganhID: chuyenNganhID } // Thêm tham số ChuyenNganhID
-      });
-      setData(response.data.dulieu);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-
-  // Fetch chuyên ngành data
-  const fetchChuyenNganhData = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await axiosInstance.get(`${API_URL}/auth/getChuyenNganh`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setChuyenNganhData(response.data); // Dữ liệu chuyên ngành
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-
-  // Handle file download
-
-  // Handle file preview
-  const handleView = async (id) => {
-    try {
+      setLoading(true);
       const access_token = localStorage.getItem('access_token');
       if (!access_token) {
-        message.error('Không tìm thấy access token');
+        setError('No access token available');
         return;
       }
-
-      const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
+      const decodedToken = jwtDecode(access_token);
+      const userID = decodedToken.id;
+      
+      const response = await axiosInstance.get(`${API_URL}/auth/getUserById?UserID=${userID}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
         }
       });
 
-      if (response.data.status !== 1) {
-        message.error('Không thể lấy link xem file');
-        return;
+      if (response.data.status === 1) {
+        // Set user data only if it's different from the current data
+        setUserData((prevData) => {
+          return JSON.stringify(prevData) !== JSON.stringify(response.data.data) 
+            ? response.data.data 
+            : prevData;
+        });
+      } else {
+        setError('Không thể lấy thông tin người dùng');
       }
-
-      const viewUrl = response.data.data.viewUrl;
-      if (!viewUrl) {
-        message.error('Không thể lấy link xem file');
-        return;
-      }
-
-      window.open(viewUrl, '_blank');
-    } catch (error) {
-      console.error('Preview error:', error);
-      message.error('Không thể xem file');
+    } catch (err) {
+      setError('Có lỗi xảy ra khi tải dữ liệu');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Handle search
-  const handleSearch = (e) => {
-    setSearchText(e.target.value);
-  };
-
-  // Get file icon based on extension
-  const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    switch (extension) {
-      case 'pdf':
-        return <FilePdfOutlined style={{ color: 'red' }} />;
-      case 'doc':
-      case 'docx':
-        return <FileWordOutlined style={{ color: 'blue' }} />;
-      default:
-        return <FileOutlined />;
-    }
-  };
-
-  // Filter data based on search and chuyên ngành
-  const filteredData = Array.isArray(data) ? data.filter(item => {
-    if (!item || !item.Tieude) return false;
-    const matchesSearch = item.Tieude.toLowerCase().includes(searchText.toLowerCase());
-    const matchesChuyenNganh = selectedChuyenNganh === 'all' || item.ChuyenNganhID === selectedChuyenNganh;
-    return matchesSearch && matchesChuyenNganh;
-  }) : [];
-
+  }, []);
   useEffect(() => {
-    fetchData();
-
+    fetchUserData();
+  
     // Set up a timer to refresh the token before it expires
     const timer = setInterval(async () => {
       const access_token = localStorage.getItem('access_token');
@@ -133,7 +127,7 @@ const TeacherDanhSachBaiViet = () => {
         const decodedToken = jwtDecode(access_token);
         const exp = decodedToken.exp * 1000; // Convert to milliseconds
         const now = Date.now();
-
+  
         // Check if the token is about to expire in the next 30 seconds
         if (exp - now < 30000) {
           try {
@@ -146,118 +140,62 @@ const TeacherDanhSachBaiViet = () => {
         }
       }
     }, 10000); // Check every 10 seconds
-
+  
     return () => clearInterval(timer); // Cleanup the timer on unmount
-  }, []);
+  }, [fetchUserData]);
+  useEffect(() => {
+    // Only fetch data if no user data exists or it's not the default user data
+    if (JSON.stringify(userData) === JSON.stringify(defaultUserData)) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [userData, fetchUserData]);
 
-  // Table columns
-  const columns = [
-    {
-      title: 'Tiêu đề',
-      dataIndex: 'Tieude',
-      key: 'tieuDe',
-    },
-    {
-      title: 'File',
-      dataIndex: 'Files',
-      key: 'Files',
-      render: (files, record) => (
-        <span>
-          <FilePdfOutlined style={{ color: 'red' }} />
-          <Button type="link" onClick={() => handleView(record.ID)}>
-            <EyeOutlined /> Xem
-          </Button>
-          
-        </span>
-      ),
-    },
-    {
-      title: 'Nhóm tác giả',
-      dataIndex: 'NhomTacGia',
-      key: 'nhomTacGia',
-    },
-    {
-      title: 'Tạp chí xuất bản',
-      dataIndex: 'Tapchixuatban',
-      key: 'tapChiXuatBan',
-    },
-    {
-      title: 'Thông tin mã tạp chí',
-      dataIndex: 'Thongtintamtapchi',
-      key: 'thongTinMaTapChi',
-    },
-    {
-      title: 'Năm học',
-      dataIndex: 'Namhoc',
-      key: 'namHoc',
-    },
-    {
-      title: 'Ghi chú',
-      dataIndex: 'Ghichu',
-      key: 'ghiChu',
-    },
-  ];
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin tip="Đang tải thông tin..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '20px', color: '#ff4d4f' }}>
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h3 style={{ marginLeft: '20px', marginTop: '20px' }}>Danh sách Bài Viết</h3>
-      <div style={{ padding: '20px' }}>
-        <div style={{ 
-          display: 'flex', 
-          marginBottom: '20px', 
-          justifyContent: 'space-between',
-          alignItems: 'center' 
-        }}>
-          <Input
-            placeholder="Tìm kiếm theo tiêu đề..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={handleSearch}
-            style={{ width: '300px' }}
-          />
-          <Select
-            defaultValue="all"
-            style={{ width: 200 }}
-            onChange={handleChuyenNganhChange}
-          >
-            <Option value="all">Tất cả</Option>
-            {chuyenNganhData.map(chuyenNganh => (
-              <Option key={chuyenNganh.ChuyenNganhID} value={chuyenNganh.ChuyenNganhID}>
-                {chuyenNganh.TenChuyenNganh} {/* Hiển thị tên chuyên ngành */}
-              </Option>
-            ))}
-          </Select>
-        </div>
-        <Table
-          loading={loading}
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="ID"
-          pagination={{
-            pageSize: 5,
-          }}
-          bordered
-          style={{ backgroundColor: '#F0F0F0' }}
-          className="custom-table"
+    <Content style={contentStyle}>
+      <div style={infoContainerStyle}>
+        <Image
+          alt={`Ảnh đại diện của ${userData.Hoten}`}
+          src={userData.Img || defaultAvatar}
+          style={imageStyle}
+          fallback={defaultAvatar}
         />
-        <Modal
-          title="Chi tiết File"
-          open={filePreviewModal.visible}
-          onCancel={() => setFilePreviewModal({ ...filePreviewModal, visible: false })}
-          footer={[<Button key="back" onClick={() => setFilePreviewModal({ ...filePreviewModal, visible: false })}>Đóng</Button>]}
-          width={800}
-        >
-          <iframe
-            src={filePreviewModal.fileUrl}
-            width="100%"
-            height="500px"
-            title="File Preview"
-            style={{ border: 'none' }}
-          />
-        </Modal>
       </div>
-    </div>
+      <div style={textBlockWrapperStyle}>
+        <div style={textBlockStyle}>
+          <p style={textStyle}><strong>Mã giáo viên:</strong> {userData.MGV}</p>
+          <p style={textStyle}><strong>Họ tên:</strong> {userData.Hoten}</p>
+          <p style={textStyle}><strong>Giới tính:</strong> {userData.Gioitinh}</p>
+          <p style={textStyle}><strong>Ngày sinh:</strong> {formatDate(userData.Ngaysinh)}</p>
+          <p style={textStyle}><strong>Nơi sinh:</strong> {userData.Noisinh}</p>
+        </div>
+        <div style={textBlockStyle}>
+          <p style={textStyle}><strong>Số điện thoại:</strong> {userData.Std}</p>
+          <p style={textStyle}><strong>Số năm công tác:</strong> {userData.Sonam}</p>
+          <p style={textStyle}><strong>Ngành:</strong> {userData.Nganh}</p>
+          <p style={textStyle}><strong>Chuyên ngành:</strong> {userData.Chuyenganh}</p>
+          <p style={textStyle}><strong>Tên đơn vị:</strong> {userData.Tendonvi}</p>
+        </div>
+      </div>
+    </Content>
   );
 };
 
-export default TeacherDanhSachBaiViet;
+export default CustomContent;
