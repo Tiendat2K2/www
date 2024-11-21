@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Modal, Form, Select, message } from 'antd';
-import { EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, SearchOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, EyeOutlined, FilePdfOutlined, SearchOutlined, PlusOutlined } from '@ant-design/icons';
 import { API_URL } from '../../../utils/api';
 import { jwtDecode } from 'jwt-decode'; 
 import axiosInstance from '../../../utils/axiosInstance';
@@ -15,6 +15,7 @@ const TeacherBaiViet = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [deletingRecordId, setDeletingRecordId] = useState(null);
   const [searchText, setSearchText] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -65,6 +66,8 @@ const TeacherBaiViet = () => {
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
+    setSelectedFile(null);
+    form.resetFields();
   };
 
   const handleModalOk = async () => {
@@ -73,7 +76,7 @@ const TeacherBaiViet = () => {
       const access_token = localStorage.getItem('access_token');
 
       if (!access_token) {
-        console.error('Không tìm thấy access token');
+        message.error('Không tìm thấy access token');
         return;
       }
 
@@ -81,14 +84,14 @@ const TeacherBaiViet = () => {
       const userID = decodedToken.id;
 
       if (!userID) {
-        console.error('Không tìm thấy User ID trong token');
+        message.error('Không tìm thấy User ID trong token');
         return;
       }
 
       const { ChuyenNganhID, ...otherValues } = values;
 
       if (!ChuyenNganhID) {
-        console.error('Thiếu ChuyenNganhID');
+        message.error('Vui lòng chọn chuyên ngành!');
         return;
       }
 
@@ -97,76 +100,75 @@ const TeacherBaiViet = () => {
       formData.append('ChuyenNganhID', ChuyenNganhID);
 
       Object.keys(otherValues).forEach(key => {
-        formData.append(key, otherValues[key]);
+        if (key !== 'Files') {
+          formData.append(key, otherValues[key]);
+        }
       });
 
-      const fileInput = document.querySelector('input[type="file"]');
-      if (fileInput && fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-        const fileType = file.type;
-
-        if (!allowedTypes.includes(fileType)) {
-          message.error('Vui lòng chỉ chọn file PDF hoặc Word!');
-          return;
-        }
-
-        formData.append('Files', file);
+      if (selectedFile) {
+        formData.append('Files', selectedFile);
+      } else if (!editingRecord) {
+        message.error('Vui lòng chọn file PDF!');
+        return;
       }
 
       let response;
       if (editingRecord) {
         response = await axiosInstance.put(`${API_URL}/auth/updateDulieu?ID=${editingRecord.ID}`, formData, {
-          headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'multipart/form-data' }
+          headers: { 
+            'Authorization': `Bearer ${access_token}`, 
+            'Content-Type': 'multipart/form-data' 
+          }
         });
         message.success('Cập nhật thành công!');
       } else {
         response = await axiosInstance.post(`${API_URL}/auth/addDulieu`, formData, {
-          headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'multipart/form-data' }
+          headers: { 
+            'Authorization': `Bearer ${access_token}`, 
+            'Content-Type': 'multipart/form-data' 
+          }
         });
         message.success('Thêm mới thành công!');
-        window.location.reload();
       }
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         setIsModalVisible(false);
-        window.location.reload();
+        setSelectedFile(null);
+        form.resetFields();
         fetchData();
-      } else {
-        console.error('Không thành công khi gửi dữ liệu');
       }
     } catch (error) {
       console.error('Lỗi khi gửi form:', error);
+      message.error('Có lỗi xảy ra khi xử lý yêu cầu!');
     }
   };
+  useEffect(() => {
+    fetchData();
 
-  const handleDownload = async (id, fileName) => {
-    try {
+    // Set up a timer to refresh the token before it expires
+    const timer = setInterval(async () => {
       const access_token = localStorage.getItem('access_token');
-      if (!access_token) {
-        message.error('Không tìm thấy access token');
-        return;
+      if (access_token) {
+        const decodedToken = jwtDecode(access_token);
+        const exp = decodedToken.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+
+        // Check if the token is about to expire in the next 30 seconds
+        if (exp - now < 30000) {
+          try {
+            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
+            localStorage.setItem('access_token', newTokenData.access_token);
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
+            window.location.reload(); // Reset lại trang nếu không thể làm mới token
+          }
+        }
       }
+    }, 10000); // Check every 10 seconds
 
-      const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-        },
-        responseType: 'blob',
-      });
-
-      const blob = new Blob([response.data], { type: response.headers['content-type'] });
-      const link = document.createElement('a');
-      const fileURL = window.URL.createObjectURL(blob);
-      link.href = fileURL;
-      link.download = fileName || 'downloaded-file';
-      link.click();
-      window.URL.revokeObjectURL(fileURL);
-    } catch (error) {
-      console.error('Download error:', error);
-      message.error('Không thể tải xuống file');
-    }
-  };
+    return () => clearInterval(timer); // Cleanup the timer on unmount
+  }, []);
+  
 
   const handleView = async (id) => {
     try {
@@ -179,20 +181,21 @@ const TeacherBaiViet = () => {
       const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
-        },
-        responseType: 'blob',
+        }
       });
 
-      const fileType = response.headers['content-type'];
-
-      if (!fileType || !fileType.startsWith('application/pdf')) {
-        message.error('Không phải file PDF!');
+      if (response.data.status !== 1) {
+        message.error('Không thể lấy link xem file');
         return;
       }
 
-      const blob = new Blob([response.data], { type: fileType });
-      const fileUrl = window.URL.createObjectURL(blob);
-      window.open(fileUrl, '_blank');
+      const viewUrl = response.data.data.viewUrl;
+      if (!viewUrl) {
+        message.error('Không thể lấy link xem file');
+        return;
+      }
+
+      window.open(viewUrl, '_blank');
     } catch (error) {
       console.error('Preview error:', error);
       message.error('Không thể xem file');
@@ -204,21 +207,9 @@ const TeacherBaiViet = () => {
     setIsDeleteModalVisible(true);
   };
 
-  const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    switch (extension) {
-      case 'pdf':
-        return <FilePdfOutlined style={{ color: 'red' }} />;
-      case 'doc':
-      case 'docx':
-        return <FileWordOutlined style={{ color: 'blue' }} />;
-      default:
-        return <FileOutlined />;
-    }
-  };
-
   const handleAdd = () => {
     setEditingRecord(null);
+    setSelectedFile(null);
     setIsModalVisible(true);
   };
 
@@ -232,6 +223,7 @@ const TeacherBaiViet = () => {
 
   const handleEdit = (record) => {
     setEditingRecord(record);
+    setSelectedFile(null);
     setIsModalVisible(true);
     form.setFieldsValue({
       Tieude: record.Tieude,
@@ -244,31 +236,6 @@ const TeacherBaiViet = () => {
     });
   };
 
-  useEffect(() => {
-    fetchData();
-
-    const timer = setInterval(async () => {
-      const access_token = localStorage.getItem('access_token');
-      if (access_token) {
-        const decodedToken = jwtDecode(access_token);
-        const exp = decodedToken.exp * 1000;
-        const now = Date.now();
-
-        if (exp - now < 30000) {
-          try {
-            const newTokenData = await refreshToken(localStorage.getItem('refresh_token'));
-            localStorage.setItem('access_token', newTokenData.access_token);
-          } catch (refreshError) {
-            console.error('Token refresh error:', refreshError);
-            window.location.reload();
-          }
-        }
-      }
-    }, 10000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   const columns = [
     {
       title: 'Tiêu đề',
@@ -279,23 +246,15 @@ const TeacherBaiViet = () => {
       title: 'File',
       dataIndex: 'Files',
       key: 'Files',
-      render: (files, record) =>
-        files ? (
-          <span>
-            {getFileIcon(files)}
-            <Button type="link" onClick={() => handleView(record.ID)}>
-              <EyeOutlined /> Xem
-            </Button>
-            <Button
-              type="link"
-              onClick={() => handleDownload(record.ID, files.split('/').pop())}
-            >
-              <DownloadOutlined /> Tải xuống
-            </Button>
-          </span>
-        ) : (
-          'N/A'
-        ),
+      render: (files, record) => (
+        <span>
+          <FilePdfOutlined style={{ color: 'red' }} />
+          <Button type="link" onClick={() => handleView(record.ID)}>
+            <EyeOutlined /> Xem
+          </Button>
+          
+        </span>
+      ),
     },
     {
       title: 'Nhóm tác giả',
@@ -330,7 +289,11 @@ const TeacherBaiViet = () => {
           <Button onClick={() => handleEdit(record)} icon={<EditOutlined />}>
             Sửa
           </Button>
-          <Button onClick={() => showDeleteConfirm(record.ID)} icon={<DeleteOutlined />} style={{ marginLeft: '8px' }}>
+          <Button 
+            onClick={() => showDeleteConfirm(record.ID)} 
+            icon={<DeleteOutlined />} 
+            style={{ marginLeft: '8px' }}
+          >
             Xóa
           </Button>
         </span>
@@ -353,6 +316,7 @@ const TeacherBaiViet = () => {
           Thêm Bài Viết
         </Button>
       </div>
+
       <Table
         columns={columns}
         dataSource={filteredData}
@@ -367,6 +331,7 @@ const TeacherBaiViet = () => {
         }}
         className="custom-table"
       />
+
       <Modal
         title={editingRecord ? 'Chỉnh sửa Bài Viết' : 'Thêm Bài Viết'}
         visible={isModalVisible}
@@ -374,26 +339,79 @@ const TeacherBaiViet = () => {
         onCancel={handleModalCancel}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="Tieude" label="Tiêu đề" rules={[{ required: true, message: 'Vui lòng nhập tiêu đề!' }]}>
+          <Form.Item 
+            name="Tieude" 
+            label="Tiêu đề" 
+            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề!' }]}
+          >
             <Input />
           </Form.Item>
+
           <Form.Item
             name="Files"
-            label="Tên File"
-            rules={[{ required: editingRecord ? false : true, message: 'Vui lòng chọn file!' }]}
+            label="File PDF"
+            rules={[{ 
+              required: editingRecord ? false : true, 
+              message: 'Vui lòng chọn file PDF!' 
+            }]}
           >
-            <input type="file" />
+            <div>
+              <input 
+                type="file" 
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      message.error('Sai định dạng file! Chỉ chấp nhận file PDF.');
+                      e.target.value = '';
+                      setSelectedFile(null);
+                    } else {
+                      setSelectedFile(file);
+                    }
+                  } else {
+                    setSelectedFile(null);
+                  }
+                }}
+                key={Date.now()}
+              />
+              {selectedFile && (
+                <div style={{ marginTop: '8px', color: '#52c41a' }}>
+                  File đã chọn: {selectedFile.name}
+                </div>
+              )}
+            </div>
           </Form.Item>
-          <Form.Item name="NhomTacGia" label="Nhóm tác giả" rules={[{ required: true, message: 'Vui lòng nhập nhóm tác giả!' }]}>
+
+          <Form.Item 
+            name="NhomTacGia" 
+            label="Nhóm tác giả" 
+            rules={[{ required: true, message: 'Vui lòng nhập nhóm tác giả!' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="Tapchixuatban" label="Tạp chí xuất bản" rules={[{ required: true, message: 'Vui lòng nhập tên tạp chí xuất bản!' }]}>
+
+          <Form.Item 
+            name="Tapchixuatban" 
+            label="Tạp chí xuất bản" 
+            rules={[{ required: true, message: 'Vui lòng nhập tên tạp chí xuất bản!' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="Thongtintamtapchi" label="Thông tin mã tạp chí" rules={[{ required: true, message: 'Vui lòng nhập thông tin mã tạp chí!' }]}>
+
+          <Form.Item 
+            name="Thongtintamtapchi" 
+            label="Thông tin mã tạp chí" 
+            rules={[{ required: true, message: 'Vui lòng nhập thông tin mã tạp chí!' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="Namhoc" label="Chọn Năm">
+
+          <Form.Item 
+            name="Namhoc" 
+            label="Chọn Năm"
+            rules={[{ required: true, message: 'Vui lòng chọn năm học!' }]}
+          >
             <Select placeholder="Chọn năm học">
               {Array.from({ length: 2025 - 2009 + 1 }, (_, i) => (
                 <Select.Option key={2009 + i} value={2009 + i}>
@@ -402,9 +420,11 @@ const TeacherBaiViet = () => {
               ))}
             </Select>
           </Form.Item>
+
           <Form.Item name="Ghichu" label="Ghi chú">
             <Input.TextArea />
           </Form.Item>
+
           <Form.Item
             name="ChuyenNganhID"
             label="Chọn Chuyên ngành"
