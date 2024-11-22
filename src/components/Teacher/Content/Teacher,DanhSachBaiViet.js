@@ -196,18 +196,16 @@ const TeacherDanhSachBaiViet = () => {
     {
       title: 'File',
       dataIndex: 'Files',
-      key: 'files',
-      render: (files, record) => files ? (
+      key: 'Files',
+      render: (files, record) => (
         <span>
-          {getFileIcon(files)}
+          <FilePdfOutlined style={{ color: 'red' }} />
           <Button type="link" onClick={() => handleView(record.ID)}>
             <EyeOutlined /> Xem
           </Button>
-          <Button type="link" onClick={() => handleDownload(record.ID, files.split('/').pop())}>
-            <DownloadOutlined /> Tải xuống
-          </Button>
+          
         </span>
-      ) : 'N/A',
+      ),
     },
     {
       title: 'Nhóm tác giả',
