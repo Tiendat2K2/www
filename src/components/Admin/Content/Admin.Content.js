@@ -87,7 +87,7 @@ const Content = () => {
       if (userResponse.data.status === 1) {
         setData({
           major: majorRes.data.chuyenNganhCount || 0,
-          articles: articlesRes.data.dulieuCount || 0,
+          articles: articlesRes.data.count|| 0,
           teachers: teachersRes.data.userCount || 0,
         });
       } else {
