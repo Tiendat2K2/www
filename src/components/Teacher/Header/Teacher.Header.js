@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Avatar, Menu, Dropdown, Modal, Form, Input, Button, message, Upload ,Select} from 'antd';
 import { UserOutlined, LogoutOutlined, LockOutlined, UploadOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Logo from '../../../assets/img/logo.png';
 import { API_URL } from '../../../utils/api';
 import axios from 'axios';
@@ -162,7 +162,7 @@ const CustomHeader = () => {
   return (
     <>
       <Header style={headerStyle}>
-        <img src={Logo} alt="Logo" style={{ height: '40px' }} />
+       <Link to="/Teacher"><img src={Logo} alt="Logo" style={{ height: '40px' }} /></Link>
         <Dropdown overlay={menu} trigger={['click']} placement="bottomRight">
           <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#87d068', cursor: 'pointer' }} />
         </Dropdown>
