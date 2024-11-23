@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Modal, Select, message } from 'antd';
 import { 
   EyeOutlined, 
-  DownloadOutlined, 
   FileOutlined, 
   FilePdfOutlined, 
   FileWordOutlined, 
@@ -62,41 +61,6 @@ const TeacherDanhSachBaiViet = () => {
   };
 
   // Handle file download
-  const handleDownload = async (id, fileName) => {
-    try {
-      const access_token = localStorage.getItem('access_token');
-      if (!access_token) {
-        message.error('Không tìm thấy access token');
-        return;
-      }
-
-      const response = await axiosInstance.get(`${API_URL}/auth/downloadFile?ID=${id}`, {
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-        },
-        responseType: 'blob', // Ensures that the response is a binary file
-      });
-
-      // Create a Blob from the file response
-      const blob = new Blob([response.data], { type: response.headers['content-type'] });
-
-      // Create an anchor element to download the file
-      const link = document.createElement('a');
-      const fileURL = window.URL.createObjectURL(blob);
-
-      // Set the download attribute with the desired file name
-      link.href = fileURL;
-      link.download = fileName || 'downloaded-file'; // Fallback to 'downloaded-file' if no file name is provided
-      link.click(); // Programmatically trigger the download
-
-      // Clean up the object URL
-      window.URL.revokeObjectURL(fileURL);
-
-    } catch (error) {
-      console.error('Download error:', error);
-      message.error('Không thể tải xuống file');
-    }
-  };
 
   // Handle file preview
   const handleView = async (id) => {
@@ -110,22 +74,21 @@ const TeacherDanhSachBaiViet = () => {
       const response = await axiosInstance.get(`${API_URL}/auth/viewFile?ID=${id}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
-        },
-        responseType: 'blob', // Ensures that the response is a binary file
+        }
       });
 
-      // Handle different file types
-      const fileType = response.headers['content-type']; // Determine file type from response headers
-
-      if (!fileType || !fileType.startsWith('application/pdf')) {
-        message.error('Không phải file PDF!');
+      if (response.data.status !== 1) {
+        message.error('Không thể lấy link xem file');
         return;
       }
 
-      const blob = new Blob([response.data], { type: fileType });
-      const fileUrl = window.URL.createObjectURL(blob);
-      window.open(fileUrl, '_blank'); // Open the file in a new tab
+      const viewUrl = response.data.data.viewUrl;
+      if (!viewUrl) {
+        message.error('Không thể lấy link xem file');
+        return;
+      }
 
+      window.open(viewUrl, '_blank');
     } catch (error) {
       console.error('Preview error:', error);
       message.error('Không thể xem file');
@@ -138,18 +101,7 @@ const TeacherDanhSachBaiViet = () => {
   };
 
   // Get file icon based on extension
-  const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    switch (extension) {
-      case 'pdf':
-        return <FilePdfOutlined style={{ color: 'red' }} />;
-      case 'doc':
-      case 'docx':
-        return <FileWordOutlined style={{ color: 'blue' }} />;
-      default:
-        return <FileOutlined />;
-    }
-  };
+  
 
   // Filter data based on search and chuyên ngành
   const filteredData = Array.isArray(data) ? data.filter(item => {
