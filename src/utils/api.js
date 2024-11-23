@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Export the base URL for API usage
-export const API_URL = 'https://database-imft.onrender.com/api';
+export const API_URL = 'https://database-ro16.onrender.com/api';
 
 // Create axios instance
 const api = axios.create({
