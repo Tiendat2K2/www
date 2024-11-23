@@ -4,7 +4,8 @@ import { UserOutlined, LogoutOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import Logo from '../../../assets/img/logo.png';
 import { API_URL } from '../../../utils/api';
-import axios from 'axios';
+import axiosInstance from '../../../utils/axiosInstance';
+
 import {jwtDecode} from 'jwt-decode';
 const { Header } = Layout;
 const headerStyle = {
@@ -31,7 +32,7 @@ const CustomHeader = () => {
       }
       const decodedToken = jwtDecode(access_token);
       const UserID = decodedToken.id;
-      const response = await axios.get(`${API_URL}/auth/getUserById?UserID=${UserID}`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getUserById?UserID=${UserID}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
         }
@@ -54,7 +55,7 @@ const CustomHeader = () => {
       const access_token = localStorage.getItem('access_token');
       const decodedToken = jwtDecode(access_token);
       const userId = decodedToken.id;
-      const response = await axios.put(
+      const response = await axiosInstance.put(
         `${API_URL}/auth/updatePassword`,
         {
           UserID: userId,
@@ -104,7 +105,7 @@ const CustomHeader = () => {
   return (
     <>
       <Header style={headerStyle}>
-       <Link to="/admin"><img src={Logo} alt="Logo" style={{ height: '40px' }} /></Link>
+      <Link to="/admin"><img src={Logo} alt="Logo" style={{ height: '40px' }} /></Link>
         <Dropdown overlay={menu} trigger={['click']} placement="bottomRight">
           <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#87d068', cursor: 'pointer' }} />
         </Dropdown>
