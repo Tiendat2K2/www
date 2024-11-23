@@ -6,7 +6,17 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const accessToken = localStorage.getItem('access_token');
+    const adminStatus = localStorage.getItem('isAdmin') === 'true';
 
+    if (accessToken) {
+      setIsLoggedIn(true);
+      setIsAdmin(adminStatus);
+    }
+  }, []);
   useEffect(() => {
     const refreshAccessToken = async () => {
       const refreshTokenFromStorage = localStorage.getItem('refresh_token');
@@ -27,7 +37,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user }}>
+    
+    <AuthContext.Provider value={{ isAuthenticated, user,isLoggedIn, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
