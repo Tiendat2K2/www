@@ -3,7 +3,7 @@ import axios from 'axios';
 import { refreshToken } from '../server/server';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:3001/api', // Thay đổi theo URL API của bạn
+  baseURL: 'https://database-ro16.onrender.com/api', // Thay đổi theo URL API của bạn
 });
 
 // Interceptor để kiểm tra token
