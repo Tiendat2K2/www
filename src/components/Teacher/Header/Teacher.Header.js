@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Avatar, Menu, Dropdown, Modal, Form, Input, Button, message, Upload ,Select} from 'antd';
 import { UserOutlined, LogoutOutlined, LockOutlined, UploadOutlined } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate ,Link} from 'react-router-dom';
 import Logo from '../../../assets/img/logo.png';
 import { API_URL } from '../../../utils/api';
-import axios from 'axios';
+import axiosInstance from '../../../utils/axiosInstance';
+
 import { jwtDecode } from 'jwt-decode';
 const { Header } = Layout;
 const headerStyle = {
@@ -35,7 +36,7 @@ const CustomHeader = () => {
       const decodedToken = jwtDecode(access_token);
       const UserID = decodedToken.id;
      
-      const response = await axios.get(`${API_URL}/auth/getUserById?UserID=${UserID}`, {
+      const response = await axiosInstance.get(`${API_URL}/auth/getUserById?UserID=${UserID}`, {
         headers: {
           'Authorization': `Bearer ${access_token}`, // Include the token in the request headers
         }
@@ -60,7 +61,7 @@ const CustomHeader = () => {
       const decodedToken = jwtDecode(access_token);
       const UserID = decodedToken.id; // Get userID from the token
 
-      const response = await axios.put(
+      const response = await axiosInstance.put(
         `${API_URL}/auth/updatePassword`,
         {
           UserID: UserID,
@@ -106,7 +107,7 @@ const CustomHeader = () => {
         formData.append('Img', fileList[0].originFileObj);
       }
   
-      const response = await axios.put(
+      const response = await axiosInstance.put(
         `${API_URL}/auth/updateUser?UserID=${UserID}`, 
         formData,
         {
@@ -162,7 +163,7 @@ const CustomHeader = () => {
   return (
     <>
       <Header style={headerStyle}>
-       <Link to="/Teacher"><img src={Logo} alt="Logo" style={{ height: '40px' }} /></Link>
+      <Link to="/Teacher"><img src={Logo} alt="Logo" style={{ height: '40px' }} /></Link>
         <Dropdown overlay={menu} trigger={['click']} placement="bottomRight">
           <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#87d068', cursor: 'pointer' }} />
         </Dropdown>
